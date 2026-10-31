@@ -1,0 +1,16 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Liberation Fonts
+Source: https://github.com/liberationfonts
+
+Files: *
+Copyright:
+ Digitized data copyright (c) 2010 Google Corporation with Reserved Font Arimo, Tinos and Cousine.
+ Copyright (c) 2012 Red Hat, Inc. with Reserved Font Name Liberation.
+License: SIL-OFL-1.1
+ This Font Software is licensed under the SIL Open Font License,
+ Version 1.1.
+ .
+
+LiberationSerif-Regular.ttf is distributed under the SIL Open Font License 1.1
+(https://openfontlicense.org). The default icon glyph (mark_ka.json) was traced from the
+user's own artwork.

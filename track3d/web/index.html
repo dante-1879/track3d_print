@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>track3d</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#e8ecee; --panel:#f5f7f8; --ink:#17262e; --muted:#566872; --line:#cbd5da;
+  --accent:#0e6f68; --accent-ink:#ffffff; --danger:#a63a2b;
+  --sea:#1b2a31; --sea-line:#2c4049;
+  --font:"Familjen Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:15px/1.45 var(--font);color:var(--ink);background:var(--paper);display:grid;grid-template-rows:auto 1fr;overflow:hidden}
+header{display:flex;align-items:center;gap:16px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0}
+header .sub{color:var(--muted);flex:1}
+button,.btn{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 12px;border-radius:6px}
+button:hover,.btn:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600;padding:9px 18px}
+button.primary:disabled{opacity:.6;cursor:progress}
+:focus-visible{outline:3px solid #f0b429;outline-offset:2px}
+main{display:grid;grid-template-columns:390px 1fr;min-height:0}
+aside{overflow:auto;border-right:1px solid var(--line);background:var(--panel);padding:14px 16px 90px}
+.stage{position:relative;min-height:0;display:grid;grid-template-rows:1fr auto}
+#view{position:relative;background:
+  repeating-radial-gradient(circle at 70% 40%,transparent 0 34px,var(--sea-line) 34px 35px),var(--sea);min-height:240px}
+#view canvas{display:block;width:100%;height:100%}
+.empty{position:absolute;inset:0;display:grid;place-content:center;text-align:center;color:#9fb4bd;padding:24px;pointer-events:none}
+.empty b{display:block;font-size:20px;color:#dbe7ec;margin-bottom:4px}
+.parts{position:absolute;top:12px;right:12px;background:rgba(245,247,248,.95);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:190px;display:none}
+.parts label{display:flex;align-items:center;gap:8px;padding:3px 0}
+.parts input[type=color]{margin-left:auto}
+.parts small{display:block;color:var(--muted);margin-top:4px;max-width:220px}
+.viewtools{position:absolute;left:12px;top:12px}
+.drawer{background:var(--panel);border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 280px;height:190px}
+#log{margin:0;padding:10px 14px;overflow:auto;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#2c3e47;white-space:pre-wrap}
+.dl{border-left:1px solid var(--line);padding:10px 14px;overflow:auto}
+.dl a{display:flex;justify-content:space-between;gap:8px;color:var(--accent);text-decoration:none;padding:2px 0}
+.dl a:hover{text-decoration:underline}.dl span{color:var(--muted)}
+.dl h3{margin:0 0 6px;font-size:15px}
+.err{background:#f9e3df;border:1px solid #e3b3ab;color:var(--danger);padding:8px 10px;border-radius:6px;margin:0 0 10px;display:none}
+fieldset{border:0;padding:0;margin:0 0 12px}
+.card{background:#fff;border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
+.card>summary,.card>.head{padding:10px 12px;font-weight:600;cursor:pointer;list-style:none}
+.card>summary::before{content:"▸";display:inline-block;width:1.1em;color:var(--muted)}
+.card[open]>summary::before{content:"▾"}
+.card .body{padding:2px 12px 12px;display:grid;gap:10px}
+.tabs{display:flex;gap:4px;padding:0 12px}
+.tabs button{border-radius:6px 6px 0 0;border-bottom:0;flex:1}
+.tabs button[aria-selected=true]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.field{display:grid;gap:3px}
+.field>label,.field>.lab{font-weight:500}
+.field small{color:var(--muted);line-height:1.3}
+.row{display:flex;gap:8px;align-items:center}
+.row input[type=range]{flex:1;accent-color:var(--accent)}
+input[type=number],input[type=text],select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);width:100%}
+input[type=number]{width:84px}
+input[type=color]{width:38px;height:30px;padding:1px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.check{display:flex;gap:8px;align-items:flex-start}.check input{margin-top:4px;accent-color:var(--accent)}
+.field.off{opacity:.45}
+.hits{display:grid;gap:4px}.hits button{text-align:left;font-size:14px}
+.hits button[aria-pressed=true]{border-color:var(--accent);background:#e3f1ef}
+.drop{border:1.5px dashed var(--line);border-radius:8px;padding:14px;text-align:center;color:var(--muted)}
+.drop.over{border-color:var(--accent);background:#e3f1ef}
+.gen{position:sticky;bottom:0;margin:0 -16px -90px;padding:12px 16px;background:linear-gradient(transparent,var(--panel) 30%);display:flex;gap:8px}
+.gen .primary{flex:1}
+@media (max-width:900px){body{overflow:auto;display:block}main{display:block}aside{border-right:0}#view{height:60vh}.drawer{grid-template-columns:1fr;height:auto}.dl{border-left:0;border-top:1px solid var(--line)}}
+@media (prefers-reduced-motion:no-preference){.parts{transition:opacity .2s}}
+</style>
+</head>
+<body>
+<header>
+  <h1>track3d</h1>
+  <span class="sub">Turn a route or a place into a 3D-printable terrain model</span>
+  <a class="btn" href="/planner">Draw a route</a>
+  <button id="saveCfg" title="Download the current settings as JSON">Save settings</button>
+  <button id="loadCfg">Load settings</button>
+  <input id="cfgFile" type="file" accept=".json" hidden>
+</header>
+<main>
+  <aside>
+    <p class="err" id="err" role="alert"></p>
+    <section class="card" open>
+      <div class="head">Map source</div>
+      <div class="tabs" role="tablist" id="srcTabs">
+        <button role="tab" data-src="gpx" aria-selected="true">GPX route</button>
+        <button role="tab" data-src="place" aria-selected="false">Place</button>
+        <button role="tab" data-src="demo" aria-selected="false">Demo</button>
+      </div>
+      <div class="body" id="srcBody"></div>
+    </section>
+    <div id="sections"></div>
+    <div class="gen"><button class="primary" id="go">Generate model</button></div>
+  </aside>
+  <div class="stage">
+    <div id="view">
+      <div class="empty" id="empty"><div><b>No model yet</b>Choose a source, adjust the settings and generate.<br>The result appears here to inspect before you print.</div></div>
+      <div class="viewtools"><button id="reset" hidden>Reset view</button> <button id="under" hidden>View underside</button></div>
+      <div class="parts" id="parts"></div>
+    </div>
+    <div class="drawer">
+      <pre id="log" aria-live="polite">Ready.</pre>
+      <div class="dl" id="dl"><h3>Files</h3><span>Generated files appear here.</span></div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) k === "class" ? e.className = v : k.startsWith("on") ? e[k] = v : e.setAttribute(k, v);
+  kids.flat().forEach(c => e.append(c.nodeType ? c : document.createTextNode(c)));
+  return e;
+};
+const PART_OF = { terrain_color: ["terrain", "base_plate"], path_color: ["path"], road_color: ["roads"], building_color: ["buildings"],
+  logo_color: ["logo_mark"], logo_tile_color: ["logo_tile"], logo_dot_color: ["logo_dot"] };
+const state = { s: {}, src: "gpx", gpx: null, gpxName: "", place: null, radius: 5, schema: [], inputs: {} };
+
+/* ---------- settings form, generated from /api/schema ---------- */
+function field(sec, f) {
+  const set = v => { state.s[sec.key][f.name] = v; };
+  set(f.default);
+  const wrap = el("div", { class: "field" });
+  let input;
+  if (f.kind === "bool") {
+    input = el("input", { type: "checkbox", id: "f_" + f.name }); input.checked = f.default;
+    input.onchange = () => { set(input.checked); updateDeps(sec); };
+    wrap.append(el("div", { class: "check" }, input, el("label", { for: input.id }, f.label)));
+  } else if (f.kind === "choice") {
+    input = el("select", { id: "f_" + f.name }, f.choices.map(c => el("option", { value: c }, String(c))));
+    input.value = f.default;
+    input.onchange = () => set(typeof f.default === "number" ? +input.value : input.value);
+    wrap.append(el("label", { for: input.id }, f.label), input);
+  } else if (f.kind === "color") {
+    input = el("input", { type: "color", id: "f_" + f.name, value: f.default });
+    input.oninput = () => { set(input.value); (PART_OF[f.name] || []).forEach(n => viewer.setColor(n, input.value)); };
+    wrap.append(el("div", { class: "row" }, el("label", { for: input.id }, f.label), input));
+  } else if (f.kind === "textfile") {
+    input = el("input", { type: "file", accept: ".svg,image/svg+xml", id: "f_" + f.name });
+    const note = el("small", { class: "filenote" }, "No file chosen");
+    input.onchange = async () => {
+      const file = input.files[0]; if (!file) return;
+      set(await file.text()); note.textContent = file.name + " loaded";
+      const src = state.inputs.logo_icon_source;           // picking a file switches the icon source to it
+      if (src) { src.input.value = "svg"; state.s[sec.key].logo_icon_source = "svg"; }
+    };
+    wrap.append(el("label", { for: input.id }, f.label), input, note);
+  } else if (f.kind === "int" || f.kind === "float") {
+    const num = el("input", { type: "number", id: "f_" + f.name, value: f.default, step: f.step || (f.kind === "int" ? 1 : "any") });
+    if (f.min != null) { num.min = f.min; num.max = f.max; }
+    const parse = v => f.kind === "int" ? Math.round(+v) : +v;
+    num.onchange = () => { if (!isNaN(num.value) && num.value !== "") { set(parse(num.value)); if (rng) rng.value = num.value; } };
+    let rng = null;
+    if (f.min != null && f.max != null) {
+      rng = el("input", { type: "range", min: f.min, max: f.max, step: f.step || 1, value: f.default, "aria-label": f.label });
+      rng.oninput = () => { num.value = rng.value; set(parse(rng.value)); };
+    }
+    input = num;
+    wrap.append(el("label", { for: num.id }, f.label), el("div", { class: "row" }, rng || "", num));
+  } else {
+    input = el("input", { type: "text", id: "f_" + f.name, value: f.default });
+    input.oninput = () => set(input.value);
+    wrap.append(el("label", { for: input.id }, f.label), input);
+  }
+  if (f.help) wrap.append(el("small", {}, f.help));
+  state.inputs[f.name] = { input, wrap, f };
+  return wrap;
+}
+function updateDeps(sec) {   // when a section starts with an on/off switch, grey out the rest
+  const first = sec.fields[0];
+  if (first.kind !== "bool") return;
+  const on = state.s[sec.key][first.name];
+  sec.fields.slice(1).forEach(f => {
+    const { input, wrap } = state.inputs[f.name]; wrap.classList.toggle("off", !on);
+    wrap.querySelectorAll("input,select").forEach(i => i.disabled = !on);
+  });
+}
+function applySettings(obj) {
+  for (const sec of state.schema) for (const f of sec.fields) {
+    const v = obj?.[sec.key]?.[f.name]; if (v === undefined) continue;
+    state.s[sec.key][f.name] = v;
+    const { input, wrap } = state.inputs[f.name];
+    if (f.kind === "textfile") { wrap.querySelector(".filenote").textContent = v ? "SVG loaded from settings" : "No file chosen"; continue; }
+    if (f.kind === "bool") input.checked = v; else input.value = v;
+    const rng = input.closest(".row")?.querySelector("input[type=range]"); if (rng) rng.value = v;
+    updateDeps(sec);
+  }
+}
+async function buildForm() {
+  state.schema = await (await fetch("/api/schema")).json();
+  const host = $("#sections");
+  state.schema.forEach((sec, i) => {
+    state.s[sec.key] = {};
+    const body = el("div", { class: "body" }, sec.fields.map(f => field(sec, f)));
+    host.append(el("details", { class: "card", ...(i < 2 ? { open: "" } : {}) }, el("summary", {}, sec.label), body));
+    updateDeps(sec);
+  });
+}
+
+/* ---------- map source ---------- */
+function renderSource() {
+  document.querySelectorAll("#srcTabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.src === state.src));
+  const body = $("#srcBody"); body.replaceChildren();
+  if (state.src === "gpx") {
+    const file = el("input", { type: "file", accept: ".gpx,application/gpx+xml,.xml", hidden: "" });
+    const drop = el("div", { class: "drop", tabindex: "0", role: "button" },
+      state.gpx ? `${state.gpxName} loaded${state.km ? ` (${state.km.toFixed(1)} km, from the route planner)` : ""}. Drop another to replace.`
+                : "Drop a .gpx file here or click to choose");
+    const take = async f => { if (!f) return; state.gpx = await f.text(); state.gpxName = f.name; state.km = 0; renderSource(); };
+    drop.onclick = () => file.click();
+    drop.onkeydown = e => (e.key === "Enter" || e.key === " ") && file.click();
+    file.onchange = () => take(file.files[0]);
+    drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+    drop.ondragleave = () => drop.classList.remove("over");
+    drop.ondrop = e => { e.preventDefault(); take(e.dataTransfer.files[0]); };
+    body.append(drop, file, el("small", { style: "color:var(--muted)" }, "The map is sized to fit the route, with the margin set under Tile. "),
+      el("a", { href: "/planner", style: "color:var(--accent)" }, "Don't have a GPX? Draw one in the route planner."));
+  } else if (state.src === "place") {
+    const q = el("input", { type: "text", placeholder: "e.g. Everest Base Camp", "aria-label": "Place name" });
+    const hits = el("div", { class: "hits" });
+    const search = async () => {
+      if (!q.value.trim()) return; hits.replaceChildren(el("small", {}, "Searching…"));
+      try {
+        const r = await fetch("/api/geocode", { method: "POST", body: JSON.stringify({ q: q.value }) });
+        const d = await r.json(); if (!r.ok) throw new Error(d.error);
+        hits.replaceChildren(...(d.length ? d.map(h => {
+          const b = el("button", { "aria-pressed": state.place?.lat === h.lat }, h.name);
+          b.onclick = () => { state.place = h; hits.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); };
+          return b;
+        }) : [el("small", {}, "No matches. Try a more specific name.")]));
+      } catch (e) { hits.replaceChildren(el("small", { style: "color:var(--danger)" }, e.message)); }
+    };
+    q.onkeydown = e => e.key === "Enter" && search();
+    const rad = el("input", { type: "range", min: 0.5, max: 50, step: 0.5, value: state.radius, "aria-label": "Radius" });
+    const out = el("span", {}, state.radius + " km");
+    rad.oninput = () => { state.radius = +rad.value; out.textContent = rad.value + " km"; };
+    body.append(el("div", { class: "row" }, q, el("button", { onclick: search }, "Search")), hits,
+      el("div", { class: "field" }, el("div", { class: "lab" }, "Radius"), el("div", { class: "row" }, rad, out)),
+      state.place ? el("small", {}, "Selected: " + state.place.name) : "");
+  } else {
+    body.append(el("small", { style: "color:var(--muted)" }, "Synthetic terrain and a looping route. Works offline, handy for trying settings."));
+  }
+}
+$("#srcTabs").onclick = e => { const b = e.target.closest("button"); if (b) { state.src = b.dataset.src; renderSource(); } };
+
+/* ---------- 3D viewer ---------- */
+const viewer = (() => {
+  const host = $("#view");
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  host.prepend(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(35, 1, 1, 5000); camera.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445560, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(-200, -300, 400); scene.add(sun);
+  const group = new THREE.Group(); scene.add(group);
+  const meshes = {};
+  let home = null;
+  function resize() { const w = host.clientWidth, h = host.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(host); resize();
+  (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+  function frame() {
+    const box = new THREE.Box3().setFromObject(group), c = box.getCenter(new THREE.Vector3()), d = box.getSize(new THREE.Vector3()).length();
+    group.position.set(-c.x, -c.y, -box.min.z);
+    controls.target.set(0, 0, d * 0.05);
+    camera.position.set(-d * 0.55, -d * 0.95, d * 0.7); camera.far = d * 20; camera.updateProjectionMatrix();
+    controls.update(); home = { p: camera.position.clone(), t: controls.target.clone() };
+  }
+  return {
+    reset() { if (home) { camera.position.copy(home.p); controls.target.copy(home.t); } },
+    async show(base, parts) {
+      group.clear(); for (const k in meshes) delete meshes[k];
+      const loader = new THREE.STLLoader();
+      await Promise.all(parts.map(p => new Promise((ok, no) => loader.load(`${base}/${p.stl}`, g => {
+        const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: p.color, roughness: .85, metalness: 0 }));
+        meshes[p.name] = m; group.add(m); ok();
+      }, undefined, no))));
+      frame();
+    },
+    underside() {   // look at the bottom with +y up on screen, so a default (mirrored) logo reads correctly
+      if (!home) return; const d = home.p.length() * 1.05;
+      controls.target.set(0, 0, 0); camera.position.set(0, d * 0.35, -d * 0.9);
+    },
+    setColor(name, color) { meshes[name]?.material.color.set(color); },
+    toggle(name, on) { if (meshes[name]) meshes[name].visible = on; },
+  };
+})();
+$("#reset").onclick = () => viewer.reset();
+$("#under").onclick = () => viewer.underside();
+
+/* ---------- generate ---------- */
+const colorField = { terrain: "terrain_color", path: "path_color", roads: "road_color", buildings: "building_color" };
+function showErr(msg) { const e = $("#err"); e.textContent = msg || ""; e.style.display = msg ? "block" : "none"; }
+function inputSettings() {
+  const inp = { demo: false, place: "", center_lat: 0, center_lon: 0, radius_km: state.radius };
+  if (state.src === "demo") inp.demo = true;
+  if (state.src === "place") { inp.center_lat = state.place.lat; inp.center_lon = state.place.lon; }
+  return inp;
+}
+async function generate() {
+  showErr("");
+  if (state.src === "gpx" && !state.gpx) return showErr("Choose a GPX file first, or switch to Place or Demo.");
+  if (state.src === "place" && !state.place) return showErr("Search for a place and pick one of the results.");
+  const btn = $("#go"); btn.disabled = true; btn.textContent = "Generating…";
+  $("#log").textContent = ""; $("#dl").replaceChildren(el("h3", {}, "Files"), el("span", {}, "Working…"));
+  const body = { settings: { ...state.s, input: inputSettings() }, gpx: state.src === "gpx" ? state.gpx : null, filename: state.gpxName };
+  try {
+    const r = await fetch("/api/generate", { method: "POST", body: JSON.stringify(body) });
+    const { id } = await r.json(); let cursor = 0;
+    for (;;) {
+      await new Promise(r => setTimeout(r, 600));
+      const j = await (await fetch(`/api/jobs/${id}?since=${cursor}`)).json();
+      cursor = j.cursor;
+      if (j.log.length) { const lg = $("#log"); lg.textContent += (lg.textContent ? "\n" : "") + j.log.join("\n"); lg.scrollTop = lg.scrollHeight; }
+      if (j.status === "error") { showErr(j.error); break; }
+      if (j.status === "done") { await finish(id, j.result); break; }
+    }
+  } catch (e) { showErr("Could not reach the track3d server: " + e.message); }
+  btn.disabled = false; btn.textContent = "Generate model";
+}
+async function finish(id, res) {
+  const dl = $("#dl"); dl.replaceChildren(el("h3", {}, "Files"));
+  res.files.forEach(f => dl.append(el("a", { href: `/files/${id}/${f.name}?dl=1` }, f.name, el("span", {}, (f.size / 1048576).toFixed(1) + " MB"))));
+  dl.append(el("a", { href: `/zip/${id}`, style: "margin-top:6px;font-weight:600" }, "Download everything (.zip)"));
+  const panel = $("#parts"); panel.replaceChildren(); panel.style.display = "block";
+  res.parts.forEach(p => {
+    const cb = el("input", { type: "checkbox", checked: "" }), col = el("input", { type: "color", value: p.color, "aria-label": p.label + " colour" });
+    cb.onchange = () => viewer.toggle(p.name, cb.checked); col.oninput = () => viewer.setColor(p.name, col.value);
+    panel.append(el("label", {}, cb, p.label, col));
+  });
+  panel.append(el("small", {}, "Preview colours only. Set print colours under each section, then generate again for the 3MF."));
+  $("#empty").style.display = "none"; $("#reset").hidden = false; $("#under").hidden = false;
+  await viewer.show(`/files/${id}`, res.parts);
+}
+$("#go").onclick = generate;
+
+/* ---------- save / load settings ---------- */
+$("#saveCfg").onclick = () => {
+  const a = el("a", { href: URL.createObjectURL(new Blob([JSON.stringify(state.s, null, 2)], { type: "application/json" })), download: "track3d-settings.json" });
+  a.click(); URL.revokeObjectURL(a.href);
+};
+$("#loadCfg").onclick = () => $("#cfgFile").click();
+$("#cfgFile").onchange = async e => {
+  try { applySettings(JSON.parse(await e.target.files[0].text())); showErr(""); } catch { showErr("That file is not a valid settings JSON."); }
+  e.target.value = "";
+};
+
+function takePlannerRoute() {   // a route sent over by the planner's "Make 3D model" button
+  try {
+    const raw = localStorage.getItem("track3d_pending_gpx"); if (!raw) return;
+    localStorage.removeItem("track3d_pending_gpx");
+    const r = JSON.parse(raw);
+    state.gpx = r.gpx; state.gpxName = (r.name || "route") + ".gpx"; state.km = r.km || 0; state.src = "gpx";
+    renderSource();
+  } catch { }
+}
+buildForm().then(() => { renderSource(); takePlannerRoute(); });
+</script>
+</body>
+</html>
