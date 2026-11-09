@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><title>track3d from another page</title>
+<button id="b3mf">build 3mf</button> <button id="bzip">build zip (async)</button><pre id="out">idle</pre><div id="holder"></div>
+<script src="https://YOUR-TRACK3D-SERVER/track3d-client.js"></script>
+<script>
+const out = document.getElementById('out');
+document.getElementById('b3mf').onclick = async () => {
+  try { const r = await Track3D.build({ baseUrl: 'https://YOUR-TRACK3D-SERVER', demo: true, format: '3mf', apiKey: "YOUR-KEY" });
+        out.textContent = 'OK ' + r.filename + ' ' + r.blob.size + ' ' + JSON.stringify(r.meta.counts); }
+  catch (e) { out.textContent = 'ERR ' + e.message; } };
+document.getElementById('bzip').onclick = async () => {
+  try { const job = await Track3D.build({ baseUrl: 'https://YOUR-TRACK3D-SERVER', demo: true, async: true, apiKey: "YOUR-KEY" });
+        const m = await Track3D.wait(job, { baseUrl: 'https://YOUR-TRACK3D-SERVER', apiKey: "YOUR-KEY", interval: 500 });
+        out.textContent = 'ASYNC-OK ' + m.files.length + ' files'; }
+  catch (e) { out.textContent = 'ASYNC-ERR ' + e.message; } };
+if (true) window.emb = Track3D.embed('#holder', { baseUrl: 'https://YOUR-TRACK3D-SERVER', src: 'demo', autorun: true, height: '700px',
+  onGenerated: e => { window.__gen = e; }, onCompiled: e => { window.__cmp = e; } });
+</script>

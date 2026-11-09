@@ -1,7 +1,8 @@
 import numpy as np
 
 from ..geo import bilerp, resample_polyline, smooth_1d
-from ..meshing import carve_groove, ribbon_mesh
+from ..meshing import carve_groove
+from ..scene import compile_object, rdp, ribbon_spec
 from .base import Feature, register
 
 
@@ -47,4 +48,8 @@ class PathFeature(Feature):
         if ctx.C is None:
             return None
         c = ctx.cfg.path
-        return ribbon_mesh(ctx.C, c.path_width, c.path_height, ctx.path_embed)
+        spec = ribbon_spec("path", rdp(ctx.pxy, 0.03), c.path_width, c.path_height, ctx.path_embed,
+                           label="Route path", smooth_z=True)
+        spec["id"] = "path"
+        tris, _ = compile_object(spec, ctx.T)
+        return [("path", "Route path", c.path_color, tris, spec)]

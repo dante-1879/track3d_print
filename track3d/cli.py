@@ -40,15 +40,27 @@ def build_parser():
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv and argv[0] == "ui":
+    if argv and argv[0] in ("ui", "serve"):
         from .web.server import serve
-        p = argparse.ArgumentParser(prog="track3d ui")
+        p = argparse.ArgumentParser(prog="track3d ui", description="Web UI + headless build API (POST /api/build). "
+                                    "Each option also reads a TRACK3D_* environment variable.")
         p.add_argument("--port", type=int, default=8765)
-        p.add_argument("--host", default="127.0.0.1")
+        p.add_argument("--host", default="127.0.0.1", help="use 0.0.0.0 to accept connections from other machines")
         p.add_argument("--no-browser", action="store_true")
-        p.add_argument("--workdir", default="track3d_output", help="where UI jobs are written")
+        p.add_argument("--workdir", default="track3d_output", help="where jobs are written")
+        p.add_argument("--cors-origin", default=None, metavar="ORIGINS",
+                       help="comma-separated page origins allowed to call the API from a browser, or * (env TRACK3D_CORS_ORIGINS)")
+        p.add_argument("--api-key", default=None, metavar="KEYS", help="require this key for /api/build; comma-separated for several (env TRACK3D_API_KEY)")
+        p.add_argument("--max-builds", type=int, default=None, help="builds running at once (default 2)")
+        p.add_argument("--queue-wait", type=float, default=None, help="seconds a request waits for a free slot before 503 (default 30)")
+        p.add_argument("--ttl-hours", type=float, default=None, help="hours API results are kept (default 24)")
+        p.add_argument("--max-body-mb", type=float, default=None, help="largest accepted request (default 40)")
+        p.add_argument("--frame-ancestors", default=None, metavar="ORIGINS",
+                       help="restrict which pages may embed the UI in an <iframe> (CSP frame-ancestors; default: any)")
         a = p.parse_args(argv[1:])
-        return serve(a.host, a.port, a.workdir, open_browser=not a.no_browser)
+        return serve(a.host, a.port, a.workdir, open_browser=not a.no_browser, cors=a.cors_origin, api_key=a.api_key,
+                     max_builds=a.max_builds, queue_wait=a.queue_wait, ttl_hours=a.ttl_hours,
+                     frame_ancestors=a.frame_ancestors, max_body_mb=a.max_body_mb)
 
     ap = build_parser()
     ns = vars(ap.parse_args(argv))

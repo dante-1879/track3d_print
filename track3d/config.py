@@ -78,11 +78,29 @@ class BuildingSettings:
 
 
 @dataclass
+class WaterSettings:
+    water: bool = F(True, "Include water bodies", "Lakes, ponds, reservoirs and basins from OpenStreetMap")
+    water_height: float = F(0.25, "Height (mm)", "Raised above the terrain so the separate colour is visible",
+                            min=0.05, max=1.5, step=0.05)
+    waterway_width: float = F(0.8, "River width (mm)", "Printed width for rivers, streams and canals",
+                              min=0.2, max=4, step=0.1)
+    water_color: str = F("#4aa3df", "Colour", kind="color")
+
+
+@dataclass
+class GreenSettings:
+    green: bool = F(True, "Include green areas", "Parks, forests, grassland, farmland and cemeteries from OpenStreetMap")
+    green_height: float = F(0.12, "Height (mm)", "Raised slightly so the separate colour is visible",
+                            min=0.05, max=1.0, step=0.05)
+    green_color: str = F("#78a85a", "Colour", kind="color")
+
+
+@dataclass
 class LogoSettings:
     logo: bool = F(False, "Add a logo to the underside",
                    "Cuts the logo into the bottom of the base and fills it flush, so the bottom stays flat")
-    logo_mode: str = F("inlay", "Mode", "inlay = separate colour parts that fill the cut-out; "
-                       "engrave = recess only", choices=["inlay", "engrave"])
+    logo_mode: str = F("engrave", "Mode", "engrave = recessed logo; inlay = separate colour parts",
+                       choices=["engrave", "inlay"])
     logo_layout: str = F("stacked", "Layout", "Where the text sits relative to the icon",
                          choices=["stacked", "stacked_reverse", "icon_left", "icon_right", "icon_only", "text_only"])
     logo_text: str = F("Bakemono Studios", "Text")
@@ -140,6 +158,8 @@ SECTIONS = {
     "path": ("Route path", PathSettings),
     "roads": ("Roads", RoadSettings),
     "buildings": ("Buildings", BuildingSettings),
+    "water": ("Water bodies", WaterSettings),
+    "green": ("Green areas", GreenSettings),
     "logo": ("Logo on the underside", LogoSettings),
     "logo_style": ("Logo style", LogoStyleSettings),
     "output": ("Output", OutputSettings),
@@ -154,6 +174,8 @@ class Settings:
     path: PathSettings = field(default_factory=PathSettings)
     roads: RoadSettings = field(default_factory=RoadSettings)
     buildings: BuildingSettings = field(default_factory=BuildingSettings)
+    water: WaterSettings = field(default_factory=WaterSettings)
+    green: GreenSettings = field(default_factory=GreenSettings)
     logo: LogoSettings = field(default_factory=LogoSettings)
     logo_style: LogoStyleSettings = field(default_factory=LogoStyleSettings)
     output: OutputSettings = field(default_factory=OutputSettings)

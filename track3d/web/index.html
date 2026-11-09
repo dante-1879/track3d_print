@@ -17,6 +17,7 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{font:15px/1.45 var(--font);color:var(--ink);background:var(--paper);display:grid;grid-template-rows:auto 1fr;overflow:hidden}
+body.embed{grid-template-rows:1fr}body.embed>header{display:none}
 header{display:flex;align-items:center;gap:16px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
 header h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0}
 header .sub{color:var(--muted);flex:1}
@@ -33,11 +34,37 @@ aside{overflow:auto;border-right:1px solid var(--line);background:var(--panel);p
 #view canvas{display:block;width:100%;height:100%}
 .empty{position:absolute;inset:0;display:grid;place-content:center;text-align:center;color:#9fb4bd;padding:24px;pointer-events:none}
 .empty b{display:block;font-size:20px;color:#dbe7ec;margin-bottom:4px}
-.parts{position:absolute;top:12px;right:12px;background:rgba(245,247,248,.95);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:190px;display:none}
+.side{position:absolute;top:12px;right:12px;bottom:12px;width:316px;display:flex;flex-direction:column;gap:8px;overflow:auto;pointer-events:none}
+.side>*{pointer-events:auto;flex:none}
+.parts{background:rgba(245,247,248,.95);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:190px;display:none}
 .parts label{display:flex;align-items:center;gap:8px;padding:3px 0}
 .parts input[type=color]{margin-left:auto}
-.parts small{display:block;color:var(--muted);margin-top:4px;max-width:220px}
-.viewtools{position:absolute;left:12px;top:12px}
+.parts small{display:block;color:var(--muted);margin-top:4px}
+.parts.compact small{display:none}
+.editor{order:-1;background:rgba(245,247,248,.96);border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:none}
+.editor h3{margin:0 0 6px;font-size:15px}.editor .row{margin-top:5px}.editor input[type=number]{width:84px}
+.viewtools{position:absolute;left:12px;top:12px;right:340px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;pointer-events:none}
+.viewtools>*{pointer-events:auto}
+.viewtools button[hidden],.viewtools select[hidden],.viewtools .sep[hidden]{display:none}
+.viewtools .sep{width:1px;height:22px;background:#4a6270;margin:0 2px}
+.viewtools button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.viewtools button.go{background:#f0b429;border-color:#c98f0b;font-weight:600}
+.viewtools select{width:auto;padding:6px 8px}
+.chip{position:absolute;left:12px;bottom:12px;background:rgba(23,38,46,.88);color:#dbe7ec;border:1px solid #2c4049;border-radius:999px;padding:4px 12px;font-size:13px;display:none;max-width:60%}
+.chip b{color:#f0b429}
+.editor .warn{color:var(--danger);margin:6px 0 0;font-size:13px}
+.editor .grid{display:grid;grid-template-columns:112px 1fr;gap:5px 8px;align-items:center;margin-top:6px}
+.editor .grid output{display:inline-block;min-width:3.2em;text-align:right;color:var(--muted)}
+.editor .row button{padding:5px 9px}
+.editor [hidden]{display:none!important}
+.editor .grid .row{display:flex;gap:6px;align-items:center}
+.editor select{width:100%;padding:5px 6px}
+.editor .xy{flex-wrap:nowrap}.editor .xy input{width:50%;min-width:0}
+.editor .grid input[type=range]{flex:1;min-width:0}
+.editor .row{flex-wrap:wrap}
+.editor .hint{display:block;color:var(--muted);margin-top:6px;line-height:1.3}
+.editor kbd{font:12px ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:#fff}
+.dl .edited{margin-top:8px;padding-top:6px;border-top:1px dashed var(--line)}
 .drawer{background:var(--panel);border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 280px;height:190px}
 #log{margin:0;padding:10px 14px;overflow:auto;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#2c3e47;white-space:pre-wrap}
 .dl{border-left:1px solid var(--line);padding:10px 14px;overflow:auto}
@@ -101,8 +128,44 @@ input[type=color]{width:38px;height:30px;padding:1px;border:1px solid var(--line
   <div class="stage">
     <div id="view">
       <div class="empty" id="empty"><div><b>No model yet</b>Choose a source, adjust the settings and generate.<br>The result appears here to inspect before you print.</div></div>
-      <div class="viewtools"><button id="reset" hidden>Reset view</button> <button id="under" hidden>View underside</button></div>
+      <div class="viewtools">
+        <button id="reset" hidden>Reset view</button> <button id="under" hidden>View underside</button>
+        <span class="sep" id="sep1" hidden></span>
+        <button id="editToggle" hidden title="Select and reshape individual objects">Enter edit mode</button>
+        <button id="undo" hidden disabled title="Ctrl+Z">Undo</button> <button id="redo" hidden disabled title="Ctrl+Y">Redo</button>
+        <select id="addType" hidden aria-label="Object to add"></select> <button id="addBtn" hidden>Add object</button>
+        <span class="sep" id="sep2" hidden></span>
+        <button id="compile" class="go" hidden title="Rebuild the printable model from your edits">Compile new design</button>
+        <button id="saveEdit" hidden title="Download an edit file you can reopen later">Export edit file</button>
+        <button id="openEdit">Open edit file</button><input id="editFile" type="file" accept=".json" hidden>
+        <button id="discard" hidden title="Throw away all edits since the last compile">Discard edits</button>
+      </div>
+      <div class="chip" id="chip"></div>
+      <div class="side">
       <div class="parts" id="parts"></div>
+      <div class="editor" id="editor">
+        <h3 id="selTitle">Nothing selected</h3>
+        <div id="selSub" class="hint"></div>
+        <div id="selFields" hidden>
+          <div class="grid">
+            <label for="fX">Position X, Y</label><div class="row xy"><input id="fX" type="number" step="0.1" aria-label="X position"><input id="fY" type="number" step="0.1" aria-label="Y position"></div>
+            <label for="fMode">Sits on</label><select id="fMode"><option value="follow">Terrain surface</option><option value="fixed">Flat level</option></select>
+            <label for="fZ" id="lZ">Lift Z</label><input id="fZ" type="number" step="0.1">
+            <label for="fHeight">Height</label><input id="fHeight" type="number" min="0.1" max="100" step="0.1">
+            <label for="fWidth" id="lWidth">Width</label><input id="fWidth" type="number" min="0.2" max="100" step="0.1">
+            <label for="fEmbed">Base depth</label><input id="fEmbed" type="number" min="0" max="50" step="0.1">
+            <label for="fRot">Rotate</label><div class="row"><input id="fRot" type="range" min="-180" max="180" step="1" value="0"><output id="oRot">0°</output></div>
+            <label for="fScale">Scale</label><div class="row"><input id="fScale" type="range" min="20" max="300" step="1" value="100"><output id="oScale">100%</output></div>
+          </div>
+          <div class="row" style="margin-top:8px"><button id="bSplit" class="go" disabled>Split</button><button id="bSimp" title="Fewer outline points">Simplify</button><button id="bSub" title="Add a point in the middle of every edge">Subdivide</button><button id="bSmooth" title="Round the corners / curve the line">Smooth</button></div>
+          <small class="hint" id="splitHint"></small>
+          <small class="hint">All sizes are in millimetres. Z is height above the print bed (Z = 0 is the bottom of the model).</small>
+          <div class="row" style="margin-top:8px"><button id="bDup">Duplicate</button><button id="bDel">Delete</button><button id="bDone">Done</button></div>
+          <p class="warn" id="selWarn" hidden></p>
+        </div>
+        <small class="hint" id="hint">Click any building, road, river, lake or green area. Drag it to move; drag a white dot to reshape; drag the orange dot up/down for height, the green dot sideways for width. Drag a small grey dot to add a corner, or drag an edge itself. <kbd>Shift</kbd>-click corners to select several (then drag them together, or split). <kbd>Shift</kbd>-drag the orange dot to raise / lower the object. <kbd>Alt</kbd>-click or right-click a corner to remove it.</small>
+      </div>
+      </div>
     </div>
     <div class="drawer">
       <pre id="log" aria-live="polite">Ready.</pre>
@@ -111,9 +174,11 @@ input[type=color]{width:38px;height:30px;padding:1px;border:1px solid var(--line
   </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script src="/vendor/three.min.js"></script>
+<script src="/vendor/OrbitControls.js"></script>
+<script src="/vendor/STLLoader.js"></script>
+<script src="/geom.js"></script>
+<script src="/editor.js"></script>
 <script>
 const $ = (s, r = document) => r.querySelector(s);
 const el = (tag, attrs = {}, ...kids) => {
@@ -122,7 +187,7 @@ const el = (tag, attrs = {}, ...kids) => {
   kids.flat().forEach(c => e.append(c.nodeType ? c : document.createTextNode(c)));
   return e;
 };
-const PART_OF = { terrain_color: ["terrain", "base_plate"], path_color: ["path"], road_color: ["roads"], building_color: ["buildings"],
+const PART_OF = { terrain_color: ["terrain", "base_plate"], path_color: ["path"], road_color: ["roads"], building_color: ["buildings"], water_color: ["water"], green_color: ["green"],
   logo_color: ["logo_mark"], logo_tile_color: ["logo_tile"], logo_dot_color: ["logo_dot"] };
 const state = { s: {}, src: "gpx", gpx: null, gpxName: "", place: null, radius: 5, schema: [], inputs: {} };
 
@@ -143,8 +208,27 @@ function field(sec, f) {
     wrap.append(el("label", { for: input.id }, f.label), input);
   } else if (f.kind === "color") {
     input = el("input", { type: "color", id: "f_" + f.name, value: f.default });
-    input.oninput = () => { set(input.value); (PART_OF[f.name] || []).forEach(n => viewer.setColor(n, input.value)); };
-    wrap.append(el("div", { class: "row" }, el("label", { for: input.id }, f.label), input));
+    const hex = el("input", { type: "text", value: f.default, inputmode: "text",
+                              autocomplete: "off", spellcheck: "false",
+                              "aria-label": f.label + " hex value" });
+    const applyColor = value => {
+      if (!/^#[0-9a-f]{6}$/i.test(value)) return false;
+      input.value = value;
+      hex.value = value;
+      set(value);
+      (PART_OF[f.name] || []).forEach(n => viewer.setColor(n, value));
+      return true;
+    };
+    input.oninput = () => applyColor(input.value);
+    hex.oninput = () => {
+      const value = hex.value.trim();
+      if (/^#?[0-9a-f]{6}$/i.test(value)) applyColor(value.startsWith("#") ? value : "#" + value);
+    };
+    hex.onblur = () => {
+      if (!applyColor(hex.value.trim().startsWith("#") ? hex.value.trim() : "#" + hex.value.trim()))
+        hex.value = input.value;
+    };
+    wrap.append(el("div", { class: "row" }, el("label", { for: input.id }, f.label), input, hex));
   } else if (f.kind === "textfile") {
     input = el("input", { type: "file", accept: ".svg,image/svg+xml", id: "f_" + f.name });
     const note = el("small", { class: "filenote" }, "No file chosen");
@@ -159,8 +243,18 @@ function field(sec, f) {
     const num = el("input", { type: "number", id: "f_" + f.name, value: f.default, step: f.step || (f.kind === "int" ? 1 : "any") });
     if (f.min != null) { num.min = f.min; num.max = f.max; }
     const parse = v => f.kind === "int" ? Math.round(+v) : +v;
-    num.onchange = () => { if (!isNaN(num.value) && num.value !== "") { set(parse(num.value)); if (rng) rng.value = num.value; } };
     let rng = null;
+    const updateNumber = () => {
+      if (num.value !== "" && Number.isFinite(+num.value)) {
+        set(parse(num.value));
+        if (rng) rng.value = num.value;
+      }
+    };
+    num.oninput = updateNumber;
+    num.onchange = () => {
+      if (num.value === "" || !Number.isFinite(+num.value)) num.value = state.s[sec.key][f.name];
+      updateNumber();
+    };
     if (f.min != null && f.max != null) {
       rng = el("input", { type: "range", min: f.min, max: f.max, step: f.step || 1, value: f.default, "aria-label": f.label });
       rng.oninput = () => { num.value = rng.value; set(parse(rng.value)); };
@@ -191,7 +285,12 @@ function applySettings(obj) {
     state.s[sec.key][f.name] = v;
     const { input, wrap } = state.inputs[f.name];
     if (f.kind === "textfile") { wrap.querySelector(".filenote").textContent = v ? "SVG loaded from settings" : "No file chosen"; continue; }
-    if (f.kind === "bool") input.checked = v; else input.value = v;
+    if (f.kind === "bool") input.checked = v;
+    else if (f.kind === "color") {
+      input.value = v;
+      const hex = wrap.querySelector('input[type="text"]');
+      if (hex) hex.value = v;
+    } else input.value = v;
     const rng = input.closest(".row")?.querySelector("input[type=range]"); if (rng) rng.value = v;
     updateDeps(sec);
   }
@@ -231,7 +330,11 @@ function renderSource() {
     const search = async () => {
       if (!q.value.trim()) return; hits.replaceChildren(el("small", {}, "Searching…"));
       try {
-        const r = await fetch("/api/geocode", { method: "POST", body: JSON.stringify({ q: q.value }) });
+        const r = await fetch("/api/geocode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ q: q.value })
+        });
         const d = await r.json(); if (!r.ok) throw new Error(d.error);
         hits.replaceChildren(...(d.length ? d.map(h => {
           const b = el("button", { "aria-pressed": state.place?.lat === h.lat }, h.name);
@@ -240,7 +343,7 @@ function renderSource() {
         }) : [el("small", {}, "No matches. Try a more specific name.")]));
       } catch (e) { hits.replaceChildren(el("small", { style: "color:var(--danger)" }, e.message)); }
     };
-    q.onkeydown = e => e.key === "Enter" && search();
+    q.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); search(); } };
     const rad = el("input", { type: "range", min: 0.5, max: 50, step: 0.5, value: state.radius, "aria-label": "Radius" });
     const out = el("span", {}, state.radius + " km");
     rad.oninput = () => { state.radius = +rad.value; out.textContent = rad.value + " km"; };
@@ -253,60 +356,40 @@ function renderSource() {
 }
 $("#srcTabs").onclick = e => { const b = e.target.closest("button"); if (b) { state.src = b.dataset.src; renderSource(); } };
 
-/* ---------- 3D viewer ---------- */
-const viewer = (() => {
-  const host = $("#view");
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  host.prepend(renderer.domElement);
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(35, 1, 1, 5000); camera.up.set(0, 0, 1);
-  const controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x445560, 0.9));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(-200, -300, 400); scene.add(sun);
-  const group = new THREE.Group(); scene.add(group);
-  const meshes = {};
-  let home = null;
-  function resize() { const w = host.clientWidth, h = host.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
-  new ResizeObserver(resize).observe(host); resize();
-  (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
-  function frame() {
-    const box = new THREE.Box3().setFromObject(group), c = box.getCenter(new THREE.Vector3()), d = box.getSize(new THREE.Vector3()).length();
-    group.position.set(-c.x, -c.y, -box.min.z);
-    controls.target.set(0, 0, d * 0.05);
-    camera.position.set(-d * 0.55, -d * 0.95, d * 0.7); camera.far = d * 20; camera.updateProjectionMatrix();
-    controls.update(); home = { p: camera.position.clone(), t: controls.target.clone() };
-  }
-  return {
-    reset() { if (home) { camera.position.copy(home.p); controls.target.copy(home.t); } },
-    async show(base, parts) {
-      group.clear(); for (const k in meshes) delete meshes[k];
-      const loader = new THREE.STLLoader();
-      await Promise.all(parts.map(p => new Promise((ok, no) => loader.load(`${base}/${p.stl}`, g => {
-        const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: p.color, roughness: .85, metalness: 0 }));
-        meshes[p.name] = m; group.add(m); ok();
-      }, undefined, no))));
-      frame();
-    },
-    underside() {   // look at the bottom with +y up on screen, so a default (mirrored) logo reads correctly
-      if (!home) return; const d = home.p.length() * 1.05;
-      controls.target.set(0, 0, 0); camera.position.set(0, d * 0.35, -d * 0.9);
-    },
-    setColor(name, color) { meshes[name]?.material.color.set(color); },
-    toggle(name, on) { if (meshes[name]) meshes[name].visible = on; },
-  };
-})();
-$("#reset").onclick = () => viewer.reset();
-$("#under").onclick = () => viewer.underside();
+/* ---------- embedding: ?embed=1 hides the header; results are posted to the host page ---------- */
+const QS = new URLSearchParams(location.search);
+if (QS.has("embed")) document.body.classList.add("embed");
+let parentOrigin = QS.get("origin");
+if (!parentOrigin && document.referrer) { try { parentOrigin = new URL(document.referrer).origin; } catch (e) { /* no referrer */ } }
+function notify(type, id, files) {            // {source:"track3d", type:"generated"|"compiled", id, name, files:[{name,size,url}], zip}
+  if (window.parent === window || !parentOrigin) return;
+  window.parent.postMessage({ source: "track3d", type, id, name: sceneName, zip: `${location.origin}/zip/${id}`,
+    files: (files || []).map(f => ({ name: f.name, size: f.size, url: `${location.origin}/files/${id}/${f.name}?dl=1` })) }, parentOrigin);
+}
 
-/* ---------- generate ---------- */
-const colorField = { terrain: "terrain_color", path: "path_color", roads: "road_color", buildings: "building_color" };
+/* ---------- generate / open / compile ---------- */
+let lastResultId = null, sceneName = "model";
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const JSONH = { "Content-Type": "application/json" };
 function showErr(msg) { const e = $("#err"); e.textContent = msg || ""; e.style.display = msg ? "block" : "none"; }
 function inputSettings() {
   const inp = { demo: false, place: "", center_lat: 0, center_lon: 0, radius_km: state.radius };
   if (state.src === "demo") inp.demo = true;
   if (state.src === "place") { inp.center_lat = state.place.lat; inp.center_lon = state.place.lon; }
   return inp;
+}
+function log(lines) {
+  if (!lines.length) return; const lg = $("#log");
+  lg.textContent += (lg.textContent ? "\n" : "") + lines.join("\n"); lg.scrollTop = lg.scrollHeight;
+}
+async function pollJob(id) {                     // follow a background job, streaming its log; returns the final job
+  let cursor = 0;
+  for (;;) {
+    await sleep(500);
+    const j = await (await fetch(`/api/jobs/${id}?since=${cursor}`)).json();
+    cursor = j.cursor; log(j.log);
+    if (j.status !== "running") return j;
+  }
 }
 async function generate() {
   showErr("");
@@ -316,34 +399,163 @@ async function generate() {
   $("#log").textContent = ""; $("#dl").replaceChildren(el("h3", {}, "Files"), el("span", {}, "Working…"));
   const body = { settings: { ...state.s, input: inputSettings() }, gpx: state.src === "gpx" ? state.gpx : null, filename: state.gpxName };
   try {
-    const r = await fetch("/api/generate", { method: "POST", body: JSON.stringify(body) });
-    const { id } = await r.json(); let cursor = 0;
-    for (;;) {
-      await new Promise(r => setTimeout(r, 600));
-      const j = await (await fetch(`/api/jobs/${id}?since=${cursor}`)).json();
-      cursor = j.cursor;
-      if (j.log.length) { const lg = $("#log"); lg.textContent += (lg.textContent ? "\n" : "") + j.log.join("\n"); lg.scrollTop = lg.scrollHeight; }
-      if (j.status === "error") { showErr(j.error); break; }
-      if (j.status === "done") { await finish(id, j.result); break; }
-    }
+    const { id } = await (await fetch("/api/generate", { method: "POST", body: JSON.stringify(body) })).json();
+    const j = await pollJob(id);
+    if (j.status === "error") showErr(j.error); else await finish(id, j.result);
   } catch (e) { showErr("Could not reach the track3d server: " + e.message); }
   btn.disabled = false; btn.textContent = "Generate model";
 }
-async function finish(id, res) {
-  const dl = $("#dl"); dl.replaceChildren(el("h3", {}, "Files"));
-  res.files.forEach(f => dl.append(el("a", { href: `/files/${id}/${f.name}?dl=1` }, f.name, el("span", {}, (f.size / 1048576).toFixed(1) + " MB"))));
-  dl.append(el("a", { href: `/zip/${id}`, style: "margin-top:6px;font-weight:600" }, "Download everything (.zip)"));
+function fileLinks(id, files, heading) {
+  const dl = $("#dl");
+  const box = heading ? el("div", { class: "edited" }, el("h3", {}, heading)) : dl;
+  files.forEach(f => box.append(el("a", { href: `/files/${id}/${f.name}?dl=1` }, f.name, el("span", {}, (f.size / 1048576).toFixed(1) + " MB"))));
+  if (heading) dl.append(box);
+}
+function classPanel(list) {
   const panel = $("#parts"); panel.replaceChildren(); panel.style.display = "block";
-  res.parts.forEach(p => {
-    const cb = el("input", { type: "checkbox", checked: "" }), col = el("input", { type: "color", value: p.color, "aria-label": p.label + " colour" });
-    cb.onchange = () => viewer.toggle(p.name, cb.checked); col.oninput = () => viewer.setColor(p.name, col.value);
-    panel.append(el("label", {}, cb, p.label, col));
+  list.forEach(c => {
+    const cb = el("input", { type: "checkbox", checked: "" }), col = el("input", { type: "color", value: c.color, "aria-label": c.label + " colour" });
+    cb.onchange = () => viewer.toggle(c.name, cb.checked); col.oninput = () => viewer.setColor(c.name, col.value);
+    panel.append(el("label", {}, cb, c.count ? `${c.label} (${c.count.toLocaleString()})` : c.label, col));
   });
-  panel.append(el("small", {}, "Preview colours only. Set print colours under each section, then generate again for the 3MF."));
-  $("#empty").style.display = "none"; $("#reset").hidden = false; $("#under").hidden = false;
-  await viewer.show(`/files/${id}`, res.parts);
+  panel.append(el("small", {}, "Hiding or recolouring here is a view setting (colours are kept when you compile). Delete an object to drop it from the model."));
+}
+async function showScene(id, original = false) {
+  const data = await (await fetch(`/api/scene/${id}${original ? "?original=1" : ""}`)).json();
+  if (data.error) throw new Error(data.error);
+  data.id = id; sceneName = data.name;
+  const classes = await viewer.load(data, `/files/${id}`, original);
+  classPanel(classes);
+  $("#addType").replaceChildren(...(data.add_types || []).map(a => el("option", { value: a.key }, a.label)));
+  ["#reset", "#under", "#editToggle", "#undo", "#redo", "#compile", "#saveEdit", "#discard", "#sep1", "#sep2"].forEach(s => $(s).hidden = false);
+  $("#empty").style.display = "none";
+}
+async function finish(id, res) {
+  lastResultId = id;
+  const dl = $("#dl"); dl.replaceChildren(el("h3", {}, "Files"));
+  fileLinks(id, res.files);
+  dl.append(el("a", { href: `/zip/${id}`, style: "margin-top:6px;font-weight:600" }, "Download everything (.zip)"));
+  exitEdit();
+  await showScene(id);
+  refreshChrome();
+  notify("generated", id, res.files);
 }
 $("#go").onclick = generate;
+
+/* ---------- edit mode, panel, toolbar ---------- */
+let message = "";
+function refreshChrome(st) {
+  st = st || { edited: 0, canUndo: false, canRedo: false };
+  const on = viewer.isEditMode(), chip = $("#chip");
+  $("#undo").disabled = !st.canUndo; $("#redo").disabled = !st.canRedo; $("#discard").disabled = !st.edited;
+  const parts = [];
+  if (on) parts.push("<b>EDIT MODE</b>");
+  if (st.edited) parts.push(`${st.edited.toLocaleString()} object${st.edited === 1 ? "" : "s"} changed${on ? "" : " — not compiled yet"}`);
+  if (message) parts.push(message.replace(/</g, "&lt;"));
+  chip.innerHTML = parts.join(" · "); chip.style.display = parts.length ? "block" : "none";
+  $("#editToggle").textContent = on ? "Exit edit mode" : "Enter edit mode";
+  $("#editToggle").classList.toggle("on", on);
+  ["#addType", "#addBtn"].forEach(s => $(s).hidden = !on);
+  $("#editor").style.display = on ? "block" : "none"; $("#parts").classList.toggle("compact", on);
+}
+function exitEdit() { if (viewer.isEditMode()) viewer.setEditMode(false); }
+let _st = null; const lastState = () => _st;
+viewer.hooks.onChange = st => { _st = st; refreshChrome(st); };
+viewer.hooks.onMessage = m => { message = m; refreshChrome(lastState()); };
+const fields = { height: $("#fHeight"), width: $("#fWidth"), embed: $("#fEmbed") };
+viewer.hooks.onSelect = i => {
+  $("#selFields").hidden = !i; $("#hint").hidden = !!i;
+  $("#selTitle").textContent = i ? i.spec.label || i.id : "Nothing selected";
+  $("#selSub").textContent = i ? `${i.cls.label} · ${i.id} · ${i.spec.pts.length} points` : "";
+  if (!i) return;
+  for (const [k, input] of Object.entries(fields)) if (document.activeElement !== input && i.spec[k] !== undefined) input.value = (+i.spec[k]).toFixed(2).replace(/\.?0+$/, "");
+  const ribbon = i.spec.kind === "ribbon", fixed = i.spec.zfix != null;
+  const num = v => (+v).toFixed(2).replace(/\.?0+$/, "");
+  if (document.activeElement !== $("#fX")) $("#fX").value = num(i.centroid[0]);
+  if (document.activeElement !== $("#fY")) $("#fY").value = num(i.centroid[1]);
+  $("#fMode").value = fixed ? "fixed" : "follow";
+  $("#lZ").textContent = fixed ? "Level Z" : "Lift Z";
+  if (document.activeElement !== $("#fZ")) $("#fZ").value = num(fixed ? i.spec.zfix : (i.spec.zoff || 0));
+  const n = i.selV.length, sp = $("#bSplit"), isPath = i.spec.cls === "path";
+  const ok = !isPath && (ribbon ? n === 1 || n === 2 : n === 2);
+  sp.disabled = !ok; sp.textContent = ribbon ? (n === 2 ? "Separate part" : "Split at point") : "Divide shape";
+  $("#splitHint").textContent = isPath ? "The route can be reshaped but not split."
+    : n === 0 ? (ribbon ? "Shift+click a point to cut there, or two points to separate the part between them." : "Shift+click two corners to divide the shape along the line between them.")
+    : `${n} point${n === 1 ? "" : "s"} selected` + (ok ? "" : ribbon ? " - choose 1 or 2." : " - choose exactly 2.");
+  $("#fWidth").hidden = $("#lWidth").hidden = !ribbon;
+  $("#bDup").hidden = i.spec.cls === "path";
+  const w = [];
+  if (i.invalid) w.push("⚠ The outline crosses itself — fix it before compiling (it would be replaced by its bounding box).");
+  if (i.outside) w.push("⚠ Part of this object is outside the base tile.");
+  $("#selWarn").hidden = !w.length; $("#selWarn").textContent = w.join(" ");
+};
+$("#editToggle").onclick = () => { viewer.setEditMode(!viewer.isEditMode()); message = ""; refreshChrome(lastState()); };
+$("#undo").onclick = () => viewer.undo(); $("#redo").onclick = () => viewer.redo();
+$("#reset").onclick = () => viewer.reset(); $("#under").onclick = () => viewer.underside();
+$("#addBtn").onclick = () => viewer.startAdd($("#addType").value);
+$("#bDel").onclick = () => viewer.removeSelected(); $("#bDup").onclick = () => viewer.duplicate();
+$("#bSimp").onclick = () => viewer.simplify(); $("#bSub").onclick = () => viewer.subdivide(); $("#bSmooth").onclick = () => viewer.smooth();
+$("#bSplit").onclick = () => viewer.split();
+$("#fX").onchange = $("#fY").onchange = () => viewer.setPosition(+$("#fX").value, +$("#fY").value);
+$("#fMode").onchange = () => viewer.setElevation($("#fMode").value);
+$("#fZ").onchange = () => viewer.setElevation($("#fMode").value, +$("#fZ").value); $("#bDone").onclick = () => viewer.deselect();
+for (const [k, input] of Object.entries(fields)) input.onchange = () => viewer.edit({ [k]: +input.value });
+{
+  const rot = $("#fRot"), sc = $("#fScale"); let active = false;
+  const apply = () => {
+    if (!active) { viewer.transform.begin(); active = true; }
+    $("#oRot").textContent = rot.value + "°"; $("#oScale").textContent = sc.value + "%";
+    viewer.transform.apply(+rot.value, +sc.value / 100);
+  };
+  const done = () => { if (active) viewer.transform.end(); active = false; rot.value = 0; sc.value = 100; $("#oRot").textContent = "0°"; $("#oScale").textContent = "100%"; };
+  [rot, sc].forEach(r => { r.oninput = apply; r.onchange = done; });
+}
+
+/* ---------- compile / edit files ---------- */
+$("#compile").onclick = async () => {
+  if (!lastResultId) return;
+  const btn = $("#compile"); btn.disabled = true; btn.textContent = "Compiling…"; showErr("");
+  try {
+    const r = await fetch("/api/compile", { method: "POST", headers: JSONH, body: JSON.stringify({ id: lastResultId, objects: viewer.getObjects(), colors: viewer.getColors() }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "compile failed");
+    const j = await pollJob(d.id);
+    if (j.status === "error") throw new Error(j.error);
+    const res = j.result, dl = $("#dl");
+    dl.querySelectorAll(".edited").forEach(n => n.remove());
+    fileLinks(lastResultId, res.files, "Compiled design");
+    await viewer.reloadStatic(res.terrain_stl, res.statics);
+    viewer.markCompiled();
+    notify("compiled", lastResultId, res.files);
+    message = res.warnings.length ? `compiled with ${res.warnings.length} warning${res.warnings.length === 1 ? "" : "s"} (see log)` : "compiled — files are ready";
+    refreshChrome(lastState()); setTimeout(() => { message = ""; refreshChrome(lastState()); }, 6000);
+  } catch (e) { showErr("Compile failed: " + e.message); }
+  btn.disabled = false; btn.textContent = "Compile new design";
+};
+$("#saveEdit").onclick = async () => {
+  if (!lastResultId) return;
+  try {
+    const r = await fetch("/api/project/save", { method: "POST", headers: JSONH, body: JSON.stringify({ id: lastResultId, objects: viewer.getObjects(), colors: viewer.getColors() }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error);
+    const a = el("a", { href: URL.createObjectURL(new Blob([JSON.stringify(d)], { type: "application/json" })), download: `${sceneName}.track3d.json` });
+    a.click(); URL.revokeObjectURL(a.href);
+  } catch (e) { showErr("Could not export the edit file: " + e.message); }
+};
+$("#openEdit").onclick = () => $("#editFile").click();
+$("#editFile").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  showErr(""); $("#log").textContent = "";
+  try {
+    const project = JSON.parse(await f.text());
+    const { id } = await (await fetch("/api/project/open", { method: "POST", headers: JSONH, body: JSON.stringify({ project }) })).json();
+    const j = await pollJob(id);
+    if (j.status === "error") throw new Error(j.error);
+    await finish(id, j.result);
+  } catch (err) { showErr("Could not open that edit file: " + err.message); }
+};
+$("#discard").onclick = async () => {
+  if (!lastResultId || !confirm("Discard every edit and go back to the generated model?")) return;
+  try { exitEdit(); await showScene(lastResultId, true); refreshChrome(); } catch (e) { showErr(e.message); }
+};
 
 /* ---------- save / load settings ---------- */
 $("#saveCfg").onclick = () => {
@@ -365,7 +577,16 @@ function takePlannerRoute() {   // a route sent over by the planner's "Make 3D m
     renderSource();
   } catch { }
 }
-buildForm().then(() => { renderSource(); takePlannerRoute(); });
+buildForm().then(() => {
+  const s0 = QS.get("src");                     // ?src=demo | ?lat=..&lon=..&radius=km  (+ ?autorun=1) preselect the source
+  if (s0 === "demo" || s0 === "gpx") state.src = s0;
+  if (QS.has("lat") && QS.has("lon")) {
+    state.src = "place"; state.place = { name: QS.get("name") || "Chosen location", lat: +QS.get("lat"), lon: +QS.get("lon") };
+    if (QS.has("radius")) state.radius = +QS.get("radius");
+  }
+  renderSource(); takePlannerRoute();
+  if (QS.has("autorun") && state.src !== "gpx") $("#go").click();
+});
 </script>
 </body>
 </html>

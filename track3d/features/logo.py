@@ -246,12 +246,16 @@ class LogoFeature(Feature):
         art = [s_ for l in layers for s_ in l["shapes"]]            # every coloured icon shape
 
         # rings cut out of the plate, and the plate "islands" left inside letters / counters
-        if tile is not None:
+        if cfg.logo.logo_mode == "engrave":
+            holes = [o for o, _ in art] + [o for o, _ in txt]
+            islands = [h for _, hs in art for h in hs] + [h for _, hs in txt for h in hs]
+        elif tile is not None:
             holes, islands = [tile], []
         else:
             holes, islands = [o for o, _ in art], [h for _, hs in art for h in hs]
-        holes += [o for o, _ in txt]
-        islands += [h for _, hs in txt for h in hs]
+        if cfg.logo.logo_mode != "engrave":
+            holes += [o for o, _ in txt]
+            islands += [h for _, hs in txt for h in hs]
 
         plate = [extrude_shape(_tile_outline(a), holes, 0.0, d)]
         plate += [extrude_shape(i, [], 0.0, d) for i in islands]

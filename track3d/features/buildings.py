@@ -3,8 +3,8 @@ import math
 import numpy as np
 
 from ..geo import bilerp, corridor_mask, lookup
-from ..meshing import (boxes_mesh, clean_polygon, clip_convex, extrude_polygon, min_rect,
-                       offset_polygon, signed_area, triangulate)
+from ..meshing import clean_polygon, clip_convex, min_rect, offset_polygon, signed_area
+from ..scene import make_parts, poly_spec
 from ..osm import demo_footprints, demo_osm, fetch_buildings, fetch_footprints
 from .base import Feature, register
 
@@ -66,30 +66,13 @@ def build_footprints(fps, area, Zmm, cfg, embed, clear, log=print, keepout=None)
     if not polys:
         return None
 
-    allv = np.concatenate(polys)
-    vz = bilerp(Zmm, allv[:, 0] / dx, allv[:, 1] / dy)
-    zs = np.split(vz, np.cumsum([len(p) for p in polys])[:-1])
-    out, fallback = [], 0
-    for P, z, lv in zip(polys, zs, levels):
+    out = []
+    for P, lv in zip(polys, levels):
         c = P.mean(0)
         frac = (min(max(lv, 1.0), 6.0) - 1.0) / 5.0 if lv is not None else 0.1 + 0.45 * _jitter(c[0], c[1])
-        h = cfg.block_height_min + frac * (cfg.block_height_max - cfg.block_height_min)
-        T = triangulate(P)
-        if T is None:   # self-intersecting after offset: fall back to its bounding rectangle
-            rr = min_rect(P)
-            if rr is None:
-                continue
-            ctr, half, th = rr
-            cs, sn = math.cos(th), math.sin(th)
-            P = ctr + np.array([[-1, -1], [1, -1], [1, 1], [-1, 1]]) * half @ np.array([[cs, sn], [-sn, cs]])
-            T = triangulate(P)
-            fallback += 1
-            if T is None:
-                continue
-        out.append(extrude_polygon(P, T, z.min() - embed, z.max() + h))
-    if fallback:
-        log(f"  {fallback} outlines simplified to rectangles")
-    return np.concatenate(out) if out else None
+        out.append(poly_spec("buildings", P, cfg.block_height_min + frac * (cfg.block_height_max - cfg.block_height_min),
+                             embed))
+    return out or None
 
 
 # ------------------------------------------------------------------------- blocks
@@ -117,11 +100,14 @@ def build_blocks(bpts, area, Zmm, cfg, embed, clear, per_building_m2=120.0, keep
     x0, y0 = jx * cell + gap, jy * cell + gap
     x1, y1 = (jx + 1) * cell - gap, (jy + 1) * cell - gap
     dx, dy = xs[1] - xs[0], ys[1] - ys[0]
-    corners = np.stack([bilerp(Zmm, xx / dx, yy / dy) for xx, yy in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))])
     tier = np.digitize(np.clip(cover[jy, jx] / 0.5, 0, 1), [0.33, 0.66]) / 2.0          # 0, .5, 1
     jit = np.array([_jitter(a, b_) for a, b_ in zip(jx, jy)]) * 0.25
     h = cfg.block_height_min + (cfg.block_height_max - cfg.block_height_min) * np.clip(tier * 0.75 + jit, 0, 1)
-    return boxes_mesh(x0, y0, x1, y1, corners.min(0) - embed, corners.max(0) + h)
+    out = []
+    for i in range(len(jx)):
+        rect = [[x0[i], y0[i]], [x1[i], y0[i]], [x1[i], y1[i]], [x0[i], y1[i]]]
+        out.append(poly_spec("buildings", rect, h[i], 0.0))
+    return out
 
 
 @register
@@ -152,9 +138,14 @@ class BuildingsFeature(Feature):
         keep = (ctx.pxy, ctx.path_keepout) if ctx.pxy is not None else None
         embed = ctx.cfg.path.embed
         if use_fp:
-            return build_footprints(bpts, a, ctx.Zmm, c, embed, clear, ctx.log, keepout=keep)
+            specs = build_footprints(bpts, a, ctx.Zmm, c, embed, clear, ctx.log, keepout=keep)
+            out, fb = make_parts(specs or [], "building", "Building", c.building_color, ctx.T)
+            if fb:
+                ctx.log(f"  {fb} outlines simplified to rectangles")
+            return out
         ctx.log(f"Buildings: {len(bpts):,} found (blocks style)")
-        tris = build_blocks(bpts, a, ctx.Zmm, c, embed, clear, keepout=keep)
-        if tris is None:
+        specs = build_blocks(bpts, a, ctx.Zmm, c, embed, clear, keepout=keep)
+        if specs is None:
             ctx.log("No building blocks produced (lower the block density threshold).")
-        return tris
+        out, _ = make_parts(specs or [], "building", "Building block", c.building_color, ctx.T)
+        return out

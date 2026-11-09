@@ -13,14 +13,7 @@ from .features import REGISTRY
 from .features.path import carve_terrain, prepare_centerline
 from .geo import box_blur, make_area
 from .meshing import terrain_mesh
-
-
-@dataclass
-class Part:
-    name: str
-    label: str
-    tris: np.ndarray
-    color: str
+from .scene import Part, Scene, Terrain
 
 
 @dataclass
@@ -38,6 +31,7 @@ class Context:
     base_lift: float = 0.0      # terrain solid starts this high (a bottom plate fills the gap)
     path_keepout: float = 0.0   # mm from the route centre-line that roads/buildings must stay out of
     road_clear: list = field(default_factory=list)
+    T: object = None            # Terrain height field (uncarved) the objects sit on
 
 
 @dataclass
@@ -48,7 +42,7 @@ class Result:
     info: dict
 
     def to_dict(self):
-        return dict(name=self.name, info=self.info, files=self.files,
+        return dict(name=self.name, info=self.info, files=self.files, scene=True,
                     parts=[dict(name=p.name, label=p.label, color=p.color, triangles=len(p.tris),
                                 stl=f"{self.name}_{p.name}.stl") for p in self.parts])
 
@@ -57,7 +51,7 @@ def _slug(s):
     return re.sub(r"[^A-Za-z0-9_-]+", "_", s).strip("_")[:40] or "model"
 
 
-def run(cfg: Settings, route=None, log=print, name_hint=None) -> Result:
+def run(cfg: Settings, route=None, log=print, name_hint=None, save_scene=False, write_files=True) -> Result:
     inp = cfg.input
     center, label = None, None
     if inp.demo and route is None:
@@ -90,6 +84,7 @@ def run(cfg: Settings, route=None, log=print, name_hint=None) -> Result:
     elev = box_blur(elev, cfg.terrain.smooth)
     log(f"Elevation range: {elev.min():.0f} m to {elev.max():.0f} m")
     ctx.Zmm = cfg.area.base + (elev - elev.min()) * a.s * cfg.terrain.exaggeration
+    ctx.T = Terrain(ctx.Zmm, a.xs[1] - a.xs[0], a.ys[1] - a.ys[0])
 
     # --- route, then terrain (carved for the route if there is one)
     if route is not None:
@@ -100,7 +95,7 @@ def run(cfg: Settings, route=None, log=print, name_hint=None) -> Result:
             feat.prepare(ctx)
     X, Y = np.meshgrid(a.xs, a.ys)
     parts = [Part("terrain", "Terrain", terrain_mesh(np.stack([X, Y, Zt], -1), a.mask, ctx.base_lift),
-                  cfg.terrain.terrain_color)]
+                  cfg.terrain.terrain_color, cls="terrain")]
 
     # --- feature plugins
     for feat in REGISTRY:
@@ -110,9 +105,13 @@ def run(cfg: Settings, route=None, log=print, name_hint=None) -> Result:
         if made is None:
             continue
         if isinstance(made, list):
-            parts += [Part(n, l, t, c) for n, l, c, t in made if len(t)]
+            for item in made:       # (name, label, colour, tris[, spec]); no spec = static part
+                n, l, c, t = item[:4]
+                spec = item[4] if len(item) > 4 else None
+                if len(t):
+                    parts.append(Part(n, l, t, c, cls=feat.name if spec else n, spec=spec))
         elif len(made):
-            parts.append(Part(feat.name, feat.label, made, feat.color(cfg)))
+            parts.append(Part(feat.name, feat.label, made, feat.color(cfg), cls=feat.name))
 
     # --- export
     files = []
@@ -120,24 +119,25 @@ def run(cfg: Settings, route=None, log=print, name_hint=None) -> Result:
     def note(path):
         files.append(dict(name=os.path.basename(path), size=os.path.getsize(path)))
     o = cfg.output
-    for p in parts:
-        path = os.path.join(outdir, f"{name}_{p.name}.stl")
-        export.write_stl(path, p.tris, log=log)
-        note(path)
-    if o.combine_stl and len(parts) > 2:
-        path = os.path.join(outdir, f"{name}_base_combined.stl")
-        export.write_stl(path, np.concatenate([p.tris for p in parts if p.name != "path"]), log=log)
-        note(path)
-    if o.export_3mf:
-        path = os.path.join(outdir, f"{name}.3mf")
-        export.write_3mf(path, parts, title=name, log=log)
-        note(path)
-    if not o.export_stl:   # STL files above are always written first; drop them if not wanted
+    if write_files:        # the headless API builds its own (grouped) files from the scene instead
         for p in parts:
-            fn = os.path.join(outdir, f"{name}_{p.name}.stl")
-            if os.path.exists(fn):
-                os.remove(fn)
-        files = [f for f in files if not f["name"].endswith(".stl")]
+            path = os.path.join(outdir, f"{name}_{p.name}.stl")
+            export.write_stl(path, p.tris, log=log)
+            note(path)
+        if o.combine_stl and len(parts) > 2:
+            path = os.path.join(outdir, f"{name}_base_combined.stl")
+            export.write_stl(path, np.concatenate([p.tris for p in parts if p.name != "path"]), log=log)
+            note(path)
+        if o.export_3mf:
+            path = os.path.join(outdir, f"{name}.3mf")
+            export.write_3mf(path, parts, title=name, log=log)
+            note(path)
+        if not o.export_stl:   # STL files above are always written first; drop them if not wanted
+            for p in parts:
+                fn = os.path.join(outdir, f"{name}_{p.name}.stl")
+                if os.path.exists(fn):
+                    os.remove(fn)
+            files = [f for f in files if not f["name"].endswith(".stl")]
 
     height = float(ctx.Zmm.max() + (cfg.path.path_height if route is not None else 0))
     info = dict(width_mm=float(a.xs[-1]), depth_mm=float(a.ys[-1]), height_mm=height,
@@ -146,4 +146,6 @@ def run(cfg: Settings, route=None, log=print, name_hint=None) -> Result:
     if route is not None:
         log("Load the path STL with the base/terrain STLs in your slicer (don't re-centre them separately), "
             "or just open the 3MF." + (" Route is a loop." if ctx.closed else ""))
+    if save_scene:
+        Scene.from_generation(ctx, parts, name, info, cfg).save(outdir)
     return Result(name, parts, files, info)

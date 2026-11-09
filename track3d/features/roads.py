@@ -1,7 +1,7 @@
 import numpy as np
 
 from ..geo import bilerp, corridor_mask, lookup, resample_polyline
-from ..meshing import ribbon_mesh
+from ..scene import make_parts, ribbon_spec, rdp
 from ..osm import demo_osm, fetch_roads
 from .base import Feature, register
 
@@ -21,7 +21,6 @@ def build_roads(roads, area, Zmm, height, embed, major_width=1.2, keepout=None):
             masks[width] = corridor_mask((int(ys[-1] // cell) + 1, int(xs[-1] // cell) + 1),
                                          [(keepout[0], keepout[1] + width / 2)], cell)
         return masks[width]
-    dx, dy = xs[1] - xs[0], ys[1] - ys[0]
     tris, clear = [], []
     for width, ll in roads:
         xy = area.to_mm(ll[:, 0], ll[:, 1])
@@ -43,11 +42,10 @@ def build_roads(roads, area, Zmm, height, embed, major_width=1.2, keepout=None):
                 sub = seg[piece]
                 if len(sub) < 2 or np.hypot(*np.diff(sub, axis=0).T).sum() < 0.8:
                     continue
-                z = bilerp(Zmm, sub[:, 0] / dx, sub[:, 1] / dy)
-                tris.append(ribbon_mesh(np.column_stack([sub, z]), width, height, embed))
+                tris.append(ribbon_spec("roads", rdp(sub, 0.04), width, height, embed))
                 if width >= major_width:
                     clear.append((sub, max(width / 2 - 0.2, 0.3)))
-    return (np.concatenate(tris) if tris else None), clear
+    return tris or None, clear
 
 
 @register
@@ -74,4 +72,5 @@ class RoadsFeature(Feature):
         tris, ctx.road_clear = build_roads(roads, ctx.area, ctx.Zmm, c.road_height, ctx.cfg.path.embed,
                                            keepout=keep)
         ctx.log(f"Roads: {len(roads)} ways")
-        return tris
+        out, _ = make_parts(tris or [], "road", "Road", c.road_color, ctx.T)
+        return out

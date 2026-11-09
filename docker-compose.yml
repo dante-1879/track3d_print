@@ -1,0 +1,9 @@
+services:
+  track3d:
+    build: .
+    ports: ["8765:8765"]
+    env_file: [{ path: .env, required: false }]
+    volumes: ["track3d-data:/data"]
+    restart: unless-stopped
+volumes:
+  track3d-data:

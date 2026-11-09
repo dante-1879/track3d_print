@@ -2,8 +2,10 @@
 import io
 import math
 import os
+import threading
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
@@ -11,6 +13,8 @@ from .geo import bilerp
 
 TILE_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "track3d")
+_TILE_MEMORY_CACHE = {}
+_TILE_CACHE_LOCK = threading.Lock()
 
 
 def lonlat_to_pixel(lon, lat, z):
@@ -25,11 +29,19 @@ def fetch_tile(z, x, y):
     if not 0 <= y < n:
         raise ValueError(f"latitude out of range for tile z={z} y={y} (valid 0..{n - 1})")
     x %= n  # wrap longitudes past the antimeridian (Leaflet can report lng like 190 or -215)
+    key = (z, x, y)
+    with _TILE_CACHE_LOCK:
+        cached = _TILE_MEMORY_CACHE.get(key)
+    if cached is not None:
+        return cached
     os.makedirs(CACHE_DIR, exist_ok=True)
     fn = os.path.join(CACHE_DIR, f"{z}_{x}_{y}.png")
     if os.path.exists(fn):
         with open(fn, "rb") as f:
-            return f.read()
+            data = f.read()
+        with _TILE_CACHE_LOCK:
+            _TILE_MEMORY_CACHE[key] = data
+        return data
     url = TILE_URL.format(z=z, x=x, y=y)
     req = urllib.request.Request(url, headers={"User-Agent": "track3d/2.0"})
     try:
@@ -39,6 +51,8 @@ def fetch_tile(z, x, y):
         raise RuntimeError(f"HTTP {e.code} for {url}") from e
     with open(fn, "wb") as f:
         f.write(data)
+    with _TILE_CACHE_LOCK:
+        _TILE_MEMORY_CACHE[key] = data
     return data
 
 
@@ -46,11 +60,18 @@ def _mosaic(z, tx0, tx1, ty0, ty1):
     """Elevation (m) of a block of Terrarium tiles stitched together."""
     from PIL import Image
     mosaic = np.zeros(((ty1 - ty0 + 1) * 256, (tx1 - tx0 + 1) * 256))
-    for ty in range(ty0, ty1 + 1):
-        for tx in range(tx0, tx1 + 1):
-            img = np.asarray(Image.open(io.BytesIO(fetch_tile(z, tx, ty))).convert("RGB"), float)
-            e = img[..., 0] * 256.0 + img[..., 1] + img[..., 2] / 256.0 - 32768.0
-            mosaic[(ty - ty0) * 256:(ty - ty0 + 1) * 256, (tx - tx0) * 256:(tx - tx0 + 1) * 256] = e
+    tiles = [(tx, ty) for ty in range(ty0, ty1 + 1) for tx in range(tx0, tx1 + 1)]
+
+    def decode(tile):
+        tx, ty = tile
+        img = np.asarray(Image.open(io.BytesIO(fetch_tile(z, tx, ty))).convert("RGB"), float)
+        e = img[..., 0] * 256.0 + img[..., 1] + img[..., 2] / 256.0 - 32768.0
+        return tx, ty, e
+
+    with ThreadPoolExecutor(max_workers=min(8, len(tiles))) as pool:
+        for tx, ty, e in pool.map(decode, tiles):
+            mosaic[(ty - ty0) * 256:(ty - ty0 + 1) * 256,
+                   (tx - tx0) * 256:(tx - tx0 + 1) * 256] = e
     return mosaic
 
 
